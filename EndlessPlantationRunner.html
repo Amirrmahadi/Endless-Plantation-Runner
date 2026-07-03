@@ -4,777 +4,662 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Endless Plantation Runner</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@700&display=swap" rel="stylesheet">
-    
     <style>
-        body, html {
+        body {
             margin: 0;
             padding: 0;
-            width: 100%;
-            height: 100%;
             overflow: hidden;
-            background-color: #87CEEB; /* Sky blue fallback */
-            font-family: 'Nunito', sans-serif;
-            touch-action: none; /* Prevent default mobile scrolling/zooming */
+            background-color: #5BA8D5; /* Realistic sky blue */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
         }
-        
         #gameCanvas {
             display: block;
-            width: 100%;
-            height: 100%;
+            width: 100vw;
+            height: 100vh;
         }
-
-        .heading-font {
-            font-family: 'Fredoka One', cursive;
-        }
-
-        /* UI Overlays */
-        #ui-layer {
+        #uiLayer {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Let clicks pass through to UI elements */
+            pointer-events: none;
+        }
+        .hud-text {
+            position: absolute;
+            color: white;
+            font-size: 24px;
+            font-weight: 800;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            padding: 15px;
+            letter-spacing: 1px;
+        }
+        #scoreDisplay { top: 10px; left: 10px; }
+        #comboDisplay { 
+            top: 50px; 
+            left: 10px; 
+            color: #FFD700; 
+            display: none; 
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        #multiplierDisplay { top: 10px; right: 10px; color: #FFA500; }
+        
+        .overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(30, 45, 25, 0.85); /* Deep plantation green, glassy */
+            backdrop-filter: blur(5px);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            pointer-events: auto;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            z-index: 10;
+            gap: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-
-        .pointer-events-auto {
-            pointer-events: auto;
-        }
-
-        .hud {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            justify-content: space-between;
+        h1 { margin: 0 0 5px 0; color: #8BC34A; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); font-size: 36px; }
+        p { margin: 0; color: #E0E0E0; font-size: 16px; }
+        button {
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
             color: white;
-            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
-            font-size: 1.5rem;
-            display: none; /* Hidden on start */
-        }
-
-        .screen-panel {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            text-align: center;
-            max-width: 90%;
-            width: 400px;
-            transition: transform 0.3s ease;
-        }
-
-        .btn {
-            background: linear-gradient(to bottom, #4ADE80, #16A34A);
-            border: 3px solid #14532D;
-            color: white;
-            font-family: 'Fredoka One', cursive;
-            font-size: 1.5rem;
-            padding: 1rem 2rem;
-            border-radius: 999px;
+            border: none;
+            border-radius: 10px;
             cursor: pointer;
-            box-shadow: 0 6px 0 #14532D, 0 10px 15px rgba(0,0,0,0.2);
-            transition: all 0.1s;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 12px rgba(0,0,0,0.4);
             text-transform: uppercase;
-            width: 100%;
-            margin-top: 1.5rem;
+            letter-spacing: 1px;
+        }
+        button:hover { 
+            background: linear-gradient(135deg, #66BB6A, #388E3C);
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+        }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 5px rgba(0,0,0,0.4); }
+        
+        #gameOverScreen, #countdownScreen { display: none; }
+        
+        #countdownText {
+            font-size: 100px;
+            font-weight: 900;
+            color: #FFD700;
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.8);
         }
 
-        .btn:active {
-            transform: translateY(6px);
-            box-shadow: 0 0px 0 #14532D, 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .controls-info {
-            background: #f3f4f6;
-            border-radius: 12px;
-            padding: 1rem;
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: #4b5563;
+        .controls-hint {
+            margin-top: 10px;
+            font-size: 15px;
+            color: #BDBDBD;
+            background: rgba(0,0,0,0.3);
+            padding: 10px 15px;
+            border-radius: 8px;
         }
     </style>
 </head>
 <body>
 
-    <!-- WebGL Canvas -->
-    <canvas id="gameCanvas"></canvas>
+<canvas id="gameCanvas"></canvas>
 
-    <!-- UI Layer -->
-    <div id="ui-layer">
-        
-        <!-- HUD (Score) -->
-        <div id="hud" class="hud pointer-events-none">
-            <div class="heading-font text-yellow-300 flex items-center">
-                <svg class="w-8 h-8 mr-2 drop-shadow-md" fill="#F97316" viewBox="0 0 24 24" stroke="white" stroke-width="2">
-                    <circle cx="12" cy="14" r="8"></circle>
-                    <path d="M12 2 Q10 8 12 14 Q14 8 12 2" fill="#22C55E" stroke="#166534"></path>
-                </svg>
-                <span id="scoreVal">0</span>
-            </div>
-            <div class="heading-font text-white">
-                HI: <span id="highScoreVal">0</span>
-            </div>
-        </div>
+<div id="uiLayer">
+    <div id="scoreDisplay" class="hud-text">Score: 0</div>
+    <div id="comboDisplay" class="hud-text">Combo x1</div>
+    <div id="multiplierDisplay" class="hud-text"></div>
 
-        <!-- Start Screen -->
-        <div id="startScreen" class="screen-panel pointer-events-auto">
-            <h1 class="heading-font text-4xl text-green-700 mb-2 leading-tight">Endless<br>Plantation<br>Runner</h1>
-            <p class="text-gray-600 mb-4 font-bold">Collect Palm Fruits. Avoid Obstacles.</p>
-            
-            <div class="controls-info text-left">
-                <p class="mb-1">💻 <strong>PC:</strong> Arrows / Space to move, jump, slide.</p>
-                <p>📱 <strong>Mobile:</strong> Swipe to move, jump, slide.</p>
-            </div>
-
-            <button id="startBtn" class="btn">Play Now</button>
-        </div>
-
-        <!-- Game Over Screen -->
-        <div id="gameOverScreen" class="screen-panel pointer-events-auto hidden">
-            <h1 class="heading-font text-4xl text-red-600 mb-2">CRASHED!</h1>
-            
-            <div class="bg-gray-100 rounded-xl p-4 my-4">
-                <p class="text-gray-500 text-sm font-bold uppercase">Final Score</p>
-                <p class="heading-font text-5xl text-orange-500 my-1" id="finalScore">0</p>
-                <p class="text-gray-600 font-bold">High Score: <span id="bestScore">0</span></p>
-            </div>
-
-            <button id="restartBtn" class="btn">Try Again</button>
-        </div>
+    <div id="startScreen" class="overlay">
+        <h1>Plantation Runner</h1>
+        <p>Drive the Harvester Tractor!</p>
+        <button id="startBtn">Start Harvest</button>
+        <div class="controls-hint">Swipe or use Arrow Keys to dodge.<br>Collect Fresh Fruit Bunches!</div>
+    </div>
+    
+    <div id="countdownScreen" class="overlay" style="background: transparent; box-shadow: none; border: none; backdrop-filter: none;">
+        <div id="countdownText">3</div>
     </div>
 
-    <script>
-        // --- Game State & Constants ---
-        let gameState = 'start'; // start, playing, gameover
-        let score = 0;
-        let highScore = localStorage.getItem('plantationRunnerHighScore') || 0;
-        let gameSpeed = 20;
-        const BASE_SPEED = 20;
-        const SPEED_INCREMENT = 0.5; // How much speed increases per frame batch
-        
-        // Lane settings
-        const LANE_WIDTH = 3;
-        const LANES = [-LANE_WIDTH, 0, LANE_WIDTH]; // Left, Center, Right
-        let currentLane = 1; // Start in center (index 1)
+    <div id="gameOverScreen" class="overlay">
+        <h1 style="color: #FF5252;">Harvest Over</h1>
+        <p id="finalScoreText" style="font-size: 24px; font-weight: bold; color: #FFF;">Score: 0</p>
+        <button id="restartBtn">Play Again</button>
+    </div>
+</div>
 
-        // Player physics
-        let isJumping = false;
-        let isSliding = false;
-        let yVelocity = 0;
-        const GRAVITY = -50;
-        const JUMP_FORCE = 18;
-        const BASE_Y = 1; // Normal player height from ground
-        let slideTimer = 0;
-        const SLIDE_DURATION = 0.6; // Seconds
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    let scene, camera, renderer;
+    let playerGroup, wheels = []; // Player is now a complex group (Tractor)
+    let obstacles = [];
+    let items = [];
+    let scenery = []; // Background palm trees
+    
+    let gameState = 'START'; 
+    let score = 0;
+    let gameSpeed = 0.5;
+    const baseSpeed = 0.5;
+    let distance = 0;
+    
+    // Lane Configuration
+    const laneWidth = 3;
+    const leftLane = -laneWidth;
+    const middleLane = 0;
+    const rightLane = laneWidth;
+    let currentLane = middleLane;
+    
+    // Player Animation & Easing
+    let targetX = middleLane;
+    const laneSwitchSpeed = 0.15; 
+    let isJumping = false;
+    let jumpVelocity = 0;
+    const gravity = -0.018;
+    const jumpPower = 0.35;
+    let playerY = 0.8; // Raised for tractor base
 
-        // Objects
-        let obstacles = [];
-        let scenery = [];
-        let particles = [];
-        let clock = new THREE.Clock();
-        
-        // DOM Elements
-        const startScreen = document.getElementById('startScreen');
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        const hud = document.getElementById('hud');
-        const scoreVal = document.getElementById('scoreVal');
-        const highScoreVal = document.getElementById('highScoreVal');
-        const finalScore = document.getElementById('finalScore');
-        const bestScore = document.getElementById('bestScore');
-        
-        highScoreVal.innerText = highScore;
+    // Combo System
+    let comboCount = 0;
+    
+    // UI Elements
+    const scoreDisplay = document.getElementById('scoreDisplay');
+    const comboDisplay = document.getElementById('comboDisplay');
+    const startScreen = document.getElementById('startScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const countdownScreen = document.getElementById('countdownScreen');
+    const countdownText = document.getElementById('countdownText');
+    const finalScoreText = document.getElementById('finalScoreText');
+    
+    // Realistic Color Palette
+    const colors = {
+        sky: 0x5BA8D5,
+        ground: 0x3E6B27,     // Deep tropical grass
+        path: 0x6E4C33,       // Dirt plantation road
+        wood: 0x4A3320,       // Trunks/Logs
+        leaf: 0x2A6B29,       // Palm leaves
+        tractor: 0xDD2C00,    // Bright industrial orange/red for contrast
+        tractorDark: 0x212121,
+        fruit: 0xE64A19,      // Reddish-orange Fresh Fruit Bunch
+        golden: 0xFFD700,
+        coconut: 0x5D4037
+    };
 
-        // --- Audio System (Tone.js) ---
-        let bgm, jumpSound, collectSound, crashSound, slideSound;
-        let audioInitialized = false;
+    // Shared Materials for performance
+    const matWood = new THREE.MeshStandardMaterial({ color: colors.wood, roughness: 0.9, metalness: 0.1 });
+    const matLeaf = new THREE.MeshStandardMaterial({ color: colors.leaf, roughness: 0.8, metalness: 0.1 });
+    const matFruit = new THREE.MeshStandardMaterial({ color: colors.fruit, roughness: 0.6, metalness: 0.1 });
+    const matGold = new THREE.MeshStandardMaterial({ color: colors.golden, roughness: 0.3, metalness: 0.8, emissive: 0x664400 });
+    const matCoconut = new THREE.MeshStandardMaterial({ color: colors.coconut, roughness: 0.9, metalness: 0.0 });
 
-        function initAudio() {
-            if (audioInitialized) return;
-            
-            // Background Music: A plucky, tropical marimba vibe
-            bgm = new Tone.PolySynth(Tone.FMSynth, {
-                harmonicity: 1.5,
-                modulationIndex: 2,
-                oscillator: { type: "sine" },
-                envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.8 },
-                modulation: { type: "square" },
-                modulationEnvelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
-            }).toDestination();
-            bgm.volume.value = -12;
+    function init() {
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(colors.sky);
+        scene.fog = new THREE.FogExp2(colors.sky, 0.015); // Exponential fog for realistic horizon blending
 
-            const chords = [
-                ["C4", "E4", "G4"],
-                ["A3", "C4", "E4"],
-                ["F3", "A3", "C4"],
-                ["G3", "B3", "D4"]
-            ];
-            let chordIdx = 0;
-            
-            Tone.Transport.scheduleRepeat((time) => {
-                if (gameState === 'playing') {
-                    // Arpeggiate the current chord
-                    const chord = chords[chordIdx % chords.length];
-                    bgm.triggerAttackRelease(chord[0], "8n", time);
-                    bgm.triggerAttackRelease(chord[1], "8n", time + 0.15);
-                    bgm.triggerAttackRelease(chord[2], "8n", time + 0.3);
-                    bgm.triggerAttackRelease(chord[1], "8n", time + 0.45);
-                    
-                    if (Tone.Transport.position.split(':')[1] % 2 === 0) {
-                        chordIdx++;
-                    }
-                }
-            }, "2n");
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 150);
+        camera.position.set(0, 6, 12); // Slightly lower and closer for speed feel
+        camera.lookAt(0, 1, -20);
 
-            // SFX
-            jumpSound = new Tone.Synth({
-                oscillator: { type: 'sine' },
-                envelope: { attack: 0.01, decay: 0.4, sustain: 0, release: 0.1 }
-            }).toDestination();
-            jumpSound.volume.value = -5;
-
-            slideSound = new Tone.NoiseSynth({
-                noise: { type: 'pink' },
-                envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.1 }
-            }).toDestination();
-            slideSound.volume.value = -10;
-
-            collectSound = new Tone.Synth({
-                oscillator: { type: 'triangle' },
-                envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.1 }
-            }).toDestination();
-            collectSound.volume.value = -8;
-
-            crashSound = new Tone.MembraneSynth({
-                pitchDecay: 0.05,
-                octaves: 4,
-                oscillator: { type: 'square' },
-                envelope: { attack: 0.01, decay: 0.4, sustain: 0.01, release: 0.4 }
-            }).toDestination();
-            crashSound.volume.value = 0;
-
-            audioInitialized = true;
-        }
-
-        function playJump() { if(audioInitialized) jumpSound.triggerAttackRelease("G4", "8n"); }
-        function playSlide() { if(audioInitialized) slideSound.triggerAttackRelease("16n"); }
-        function playCollect() { if(audioInitialized) collectSound.triggerAttackRelease("E5", "16n"); }
-        function playCrash() { if(audioInitialized) crashSound.triggerAttackRelease("C2", "4n"); }
-
-        // --- Three.js Setup ---
-        const canvas = document.getElementById('gameCanvas');
-        const scene = new THREE.Scene();
-        // Light blue sky fog
-        scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
-        scene.background = new THREE.Color(0x87CEEB);
-
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-        // Position camera behind and slightly above the player
-        camera.position.set(0, 5, 8);
-        camera.lookAt(0, 0, -10);
-
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize for mobile
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer, realistic shadows
 
-        // Lighting
-        const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
-        scene.add(ambientLight);
+        // Realistic Lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.5);
+        scene.add(hemiLight);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(10, 20, 10);
+        const dirLight = new THREE.DirectionalLight(0xffebd6, 1.2); // Warm sunlight
+        dirLight.position.set(20, 40, 20);
         dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 20;
-        dirLight.shadow.camera.bottom = -20;
-        dirLight.shadow.camera.left = -20;
-        dirLight.shadow.camera.right = 20;
-        dirLight.shadow.camera.near = 0.1;
-        dirLight.shadow.camera.far = 50;
-        dirLight.shadow.mapSize.width = 1024;
-        dirLight.shadow.mapSize.height = 1024;
+        dirLight.shadow.camera.left = -30;
+        dirLight.shadow.camera.right = 30;
+        dirLight.shadow.camera.top = 30;
+        dirLight.shadow.camera.bottom = -30;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.mapSize.width = 2048; // High-res shadows
+        dirLight.shadow.mapSize.height = 2048;
         scene.add(dirLight);
 
-        // --- World Building ---
-        
-        // Ground
-        const groundGeo = new THREE.PlaneGeometry(100, 200);
-        const groundMat = new THREE.MeshLambertMaterial({ color: 0x4ADE80 }); // Grass green
+        // Ground & Path
+        const groundGeo = new THREE.PlaneGeometry(300, 300);
+        const groundMat = new THREE.MeshStandardMaterial({ color: colors.ground, roughness: 1.0 });
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
-        ground.position.z = -50;
         ground.receiveShadow = true;
         scene.add(ground);
 
-        // Path (Dirt/Plantation track)
-        const pathGeo = new THREE.PlaneGeometry(LANE_WIDTH * 3 + 1, 200);
-        const pathMat = new THREE.MeshLambertMaterial({ color: 0xD97706 }); // Dirt brown
+        const pathGeo = new THREE.PlaneGeometry(laneWidth * 3.2, 300);
+        const pathMat = new THREE.MeshStandardMaterial({ color: colors.path, roughness: 0.9 });
         const path = new THREE.Mesh(pathGeo, pathMat);
         path.rotation.x = -Math.PI / 2;
-        path.position.y = 0.01; // Slightly above ground to prevent z-fighting
-        path.position.z = -50;
+        path.position.y = 0.05;
         path.receiveShadow = true;
         scene.add(path);
 
-        // Player Group
-        const playerGroup = new THREE.Group();
-        scene.add(playerGroup);
+        buildPlayerTractor();
 
-        // Player Body
-        const bodyGeo = new THREE.BoxGeometry(1.2, 1.5, 1.2);
-        const bodyMat = new THREE.MeshLambertMaterial({ color: 0x3B82F6 }); // Blue overalls
-        const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-        bodyMesh.position.y = 0.75; // Half of height
-        bodyMesh.castShadow = true;
-        playerGroup.add(bodyMesh);
+        // Initial background scenery
+        for(let i=0; i<10; i++) {
+            spawnSceneryTree(-30 - (Math.random() * 80));
+        }
 
-        // Player Head
-        const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        const headMat = new THREE.MeshLambertMaterial({ color: 0xFCD34D }); // Skin tone
-        const headMesh = new THREE.Mesh(headGeo, headMat);
-        headMesh.position.y = 1.9;
-        headMesh.castShadow = true;
-        playerGroup.add(headMesh);
+        window.addEventListener('resize', onWindowResize, false);
+        setupControls();
+        animate();
+    }
 
-        // Starting position
-        playerGroup.position.set(LANES[currentLane], BASE_Y, 0);
-
-        // Player Bounding Box (for collisions)
-        const playerBox = new THREE.Box3();
-
-        // --- Object Spawning ---
+    function buildPlayerTractor() {
+        playerGroup = new THREE.Group();
         
-        // Materials shared for performance
-        const logMat = new THREE.MeshLambertMaterial({ color: 0x78350F }); // Dark brown
-        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x15803D }); // Dark green
-        const fruitMat = new THREE.MeshLambertMaterial({ color: 0xEA580C }); // Orange red
-        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x92400E }); // Lighter brown
+        const matBody = new THREE.MeshStandardMaterial({ color: colors.tractor, roughness: 0.6, metalness: 0.3 });
+        const matDark = new THREE.MeshStandardMaterial({ color: colors.tractorDark, roughness: 0.8 });
+        const matGlass = new THREE.MeshStandardMaterial({ color: 0x88CCFF, opacity: 0.6, transparent: true });
 
-        function createObstacle(type, laneIndex, zPos) {
-            const group = new THREE.Group();
-            let hitbox = new THREE.Box3();
-            let mesh;
+        // Main Base/Chassis
+        const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.6, 3), matDark);
+        chassis.position.y = 0.3;
+        chassis.castShadow = true;
+        playerGroup.add(chassis);
 
-            if (type === 'log') {
-                // Low obstacle to jump over
-                const geo = new THREE.CylinderGeometry(0.6, 0.6, LANE_WIDTH * 0.9, 8);
-                mesh = new THREE.Mesh(geo, logMat);
-                mesh.rotation.z = Math.PI / 2;
-                mesh.position.y = 0.6;
-                mesh.castShadow = true;
-                group.add(mesh);
-                group.userData = { type: 'log', isDeadly: true };
-            } 
-            else if (type === 'branch') {
-                // High obstacle to slide under
-                const geo = new THREE.CylinderGeometry(0.4, 0.4, LANE_WIDTH * 0.9, 8);
-                mesh = new THREE.Mesh(geo, logMat);
-                mesh.rotation.z = Math.PI / 2;
-                mesh.position.y = 2.5; // High up
-                mesh.castShadow = true;
-                group.add(mesh);
+        // Engine Front
+        const engine = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.5), matBody);
+        engine.position.set(0, 1.0, -0.6);
+        engine.castShadow = true;
+        playerGroup.add(engine);
 
-                // Add supporting pillars to visualize it's suspended
-                const pillarGeo = new THREE.BoxGeometry(0.2, 3, 0.2);
-                const pillarL = new THREE.Mesh(pillarGeo, logMat);
-                pillarL.position.set(-LANE_WIDTH*0.4, 1.5, 0);
-                pillarL.castShadow = true;
-                const pillarR = new THREE.Mesh(pillarGeo, logMat);
-                pillarR.position.set(LANE_WIDTH*0.4, 1.5, 0);
-                pillarR.castShadow = true;
-                group.add(pillarL);
-                group.add(pillarR);
+        // Cabin
+        const cabinBase = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.2), matBody);
+        cabinBase.position.set(0, 1.2, 0.8);
+        cabinBase.castShadow = true;
+        playerGroup.add(cabinBase);
 
-                group.userData = { type: 'branch', isDeadly: true };
-            }
-            else if (type === 'fruit') {
-                // Collectible palm fruit
-                const geo = new THREE.IcosahedronGeometry(0.5, 1); // Looks like a stylized fruit
-                mesh = new THREE.Mesh(geo, fruitMat);
-                mesh.position.y = 1.0;
-                mesh.castShadow = true;
-                
-                // Little leaf on top
-                const leafGeo = new THREE.ConeGeometry(0.2, 0.4, 4);
-                const leafMesh = new THREE.Mesh(leafGeo, leavesMat);
-                leafMesh.position.y = 0.6;
-                mesh.add(leafMesh);
+        const cabinGlass = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.8, 1.3), matGlass);
+        cabinGlass.position.set(0, 2.0, 0.8);
+        playerGroup.add(cabinGlass);
 
-                group.add(mesh);
-                group.userData = { type: 'fruit', isDeadly: false, value: 10 };
-                
-                // Add a gentle rotation animation flag
-                group.userData.mesh = mesh; 
-            }
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.2, 1.6), matBody);
+        roof.position.set(0, 2.5, 0.8);
+        roof.castShadow = true;
+        playerGroup.add(roof);
 
-            group.position.set(LANES[laneIndex], 0, zPos);
-            scene.add(group);
-            obstacles.push({ group, hitbox, userData: group.userData });
-        }
+        // Exhaust pipe
+        const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1), matDark);
+        exhaust.position.set(0.5, 1.8, -1.0);
+        playerGroup.add(exhaust);
 
-        function spawnScenery(zPos) {
-            // Spawn palm trees on edges
-            const treeGeo = new THREE.CylinderGeometry(0.3, 0.5, 8, 5);
-            const leavesGeo = new THREE.DodecahedronGeometry(2.5, 0);
+        // Wheels
+        const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.4, 16);
+        wheelGeo.rotateZ(Math.PI / 2);
+        
+        const positions = [
+            [-0.9, 0.5, -1.0], // Front Left
+            [ 0.9, 0.5, -1.0], // Front Right
+            [-0.9, 0.6,  1.0], // Back Left (Slightly larger)
+            [ 0.9, 0.6,  1.0]  // Back Right
+        ];
 
-            for (let side of [-1, 1]) {
-                if (Math.random() > 0.3) {
-                    const treeGroup = new THREE.Group();
-                    
-                    const trunk = new THREE.Mesh(treeGeo, trunkMat);
-                    trunk.position.y = 4;
-                    trunk.castShadow = true;
-                    treeGroup.add(trunk);
-
-                    const leaves = new THREE.Mesh(leavesGeo, leavesMat);
-                    leaves.position.y = 8;
-                    leaves.castShadow = true;
-                    treeGroup.add(leaves);
-
-                    treeGroup.position.set(side * (LANE_WIDTH * 1.5 + Math.random()*2), 0, zPos + (Math.random()*5));
-                    scene.add(treeGroup);
-                    scenery.push(treeGroup);
-                }
-            }
-        }
-
-        let nextSpawnZ = -30;
-        function manageSpawning() {
-            // If the closest upcoming spawn point is within range, spawn something
-            if (nextSpawnZ > -100) {
-                // Decide what to spawn
-                const lane = Math.floor(Math.random() * 3);
-                const rand = Math.random();
-                
-                let type;
-                if (rand < 0.3) type = 'log';
-                else if (rand < 0.6) type = 'branch';
-                else type = 'fruit';
-
-                createObstacle(type, lane, nextSpawnZ);
-                spawnScenery(nextSpawnZ);
-
-                // Distance between obstacles decreases slightly as speed increases
-                const distance = Math.max(15, 30 - (gameSpeed - BASE_SPEED)*0.5);
-                nextSpawnZ -= distance;
-            }
-        }
-
-        function createExplosion(position, colorHex) {
-            const particleCount = 15;
-            const geo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
-            const mat = new THREE.MeshLambertMaterial({ color: colorHex });
-
-            for(let i=0; i<particleCount; i++) {
-                const mesh = new THREE.Mesh(geo, mat);
-                mesh.position.copy(position);
-                
-                // Random velocity
-                const velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 10,
-                    Math.random() * 10 + 5,
-                    (Math.random() - 0.5) * 10
-                );
-                
-                scene.add(mesh);
-                particles.push({ mesh, velocity, life: 1.0 });
-            }
-        }
-
-        function updateParticles(dt) {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                let p = particles[i];
-                p.life -= dt * 1.5;
-                if (p.life <= 0) {
-                    scene.remove(p.mesh);
-                    particles.splice(i, 1);
-                    continue;
-                }
-                
-                // Apply gravity
-                p.velocity.y += GRAVITY * dt;
-                
-                p.mesh.position.addScaledVector(p.velocity, dt);
-                p.mesh.rotation.x += p.velocity.x * dt;
-                p.mesh.rotation.y += p.velocity.y * dt;
-                
-                p.mesh.scale.setScalar(p.life);
-            }
-        }
-
-        // --- Input Handling ---
-        function moveLeft() {
-            if (gameState !== 'playing') return;
-            if (currentLane > 0) currentLane--;
-        }
-
-        function moveRight() {
-            if (gameState !== 'playing') return;
-            if (currentLane < 2) currentLane++;
-        }
-
-        function doJump() {
-            if (gameState !== 'playing') return;
-            if (!isJumping && !isSliding) {
-                isJumping = true;
-                yVelocity = JUMP_FORCE;
-                playJump();
-            }
-        }
-
-        function doSlide() {
-            if (gameState !== 'playing') return;
-            if (!isJumping && !isSliding) {
-                isSliding = true;
-                slideTimer = SLIDE_DURATION;
-                
-                // Visual squish
-                playerGroup.scale.y = 0.4;
-                playerGroup.position.y = BASE_Y * 0.4;
-                playSlide();
-            }
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
-            else if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
-            else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') doJump();
-            else if (e.key === 'ArrowDown' || e.key === 's') doSlide();
+        positions.forEach((pos, idx) => {
+            let w = new THREE.Mesh(idx > 1 ? new THREE.CylinderGeometry(0.7, 0.7, 0.5, 16).rotateZ(Math.PI/2) : wheelGeo, matDark);
+            w.position.set(...pos);
+            w.castShadow = true;
+            playerGroup.add(w);
+            wheels.push(w);
         });
 
-        // Swipe Handling
+        playerGroup.position.set(middleLane, playerY, 0);
+        scene.add(playerGroup);
+    }
+
+    function spawnSceneryTree(zPos) {
+        const tree = new THREE.Group();
+        
+        // Trunk
+        const trunkGeo = new THREE.CylinderGeometry(0.3, 0.6, 8, 8);
+        const trunk = new THREE.Mesh(trunkGeo, matWood);
+        trunk.position.y = 4;
+        // Slight organic tilt
+        trunk.rotation.x = (Math.random() - 0.5) * 0.2;
+        trunk.rotation.z = (Math.random() - 0.5) * 0.2;
+        trunk.castShadow = true;
+        tree.add(trunk);
+
+        // Leaves/Fronds
+        const leafCount = 7 + Math.floor(Math.random() * 4);
+        for(let i = 0; i < leafCount; i++) {
+            // Frond represented by a squashed, curved cone
+            const frondGeo = new THREE.ConeGeometry(0.8, 5, 4);
+            frondGeo.translate(0, 2.5, 0); // Move pivot to base
+            const frond = new THREE.Mesh(frondGeo, matLeaf);
+            
+            frond.position.set(0, 7.5, 0);
+            // Rotate outward radially
+            frond.rotation.y = (i / leafCount) * Math.PI * 2;
+            // Arc downwards
+            frond.rotation.x = Math.PI / 3 + (Math.random() * 0.2);
+            // Flatten to look leaf-like
+            frond.scale.z = 0.2; 
+            
+            frond.castShadow = true;
+            tree.add(frond);
+        }
+
+        // Place outside the main track lanes
+        const isLeft = Math.random() > 0.5;
+        const xOffset = (isLeft ? -1 : 1) * (7 + Math.random() * 8);
+        
+        tree.position.set(xOffset, 0, zPos);
+        scene.add(tree);
+        scenery.push(tree);
+    }
+
+    function setupControls() {
         let touchStartX = 0;
         let touchStartY = 0;
-        const SWIPE_THRESHOLD = 30;
+
+        window.addEventListener('keydown', (e) => {
+            if (gameState !== 'PLAYING') return;
+            if (e.key === 'ArrowLeft' && currentLane > leftLane) {
+                currentLane -= laneWidth;
+                targetX = currentLane;
+            } else if (e.key === 'ArrowRight' && currentLane < rightLane) {
+                currentLane += laneWidth;
+                targetX = currentLane;
+            } else if (e.key === 'ArrowUp' && !isJumping) {
+                isJumping = true;
+                jumpVelocity = jumpPower;
+            }
+        });
 
         window.addEventListener('touchstart', (e) => {
             touchStartX = e.changedTouches[0].screenX;
             touchStartY = e.changedTouches[0].screenY;
-        }, {passive: false});
-
-        window.addEventListener('touchmove', (e) => {
-            // Prevent scrolling on mobile while playing
-            if(gameState === 'playing') e.preventDefault(); 
-        }, {passive: false});
+        });
 
         window.addEventListener('touchend', (e) => {
-            if (gameState !== 'playing') return;
-            
-            let touchEndX = e.changedTouches[0].screenX;
-            let touchEndY = e.changedTouches[0].screenY;
-            
-            let dx = touchEndX - touchStartX;
-            let dy = touchEndY - touchStartY;
+            if (gameState !== 'PLAYING') return;
+            let dx = e.changedTouches[0].screenX - touchStartX;
+            let dy = e.changedTouches[0].screenY - touchStartY;
             
             if (Math.abs(dx) > Math.abs(dy)) {
-                // Horizontal swipe
-                if (Math.abs(dx) > SWIPE_THRESHOLD) {
-                    if (dx > 0) moveRight();
-                    else moveLeft();
+                if (dx > 30 && currentLane < rightLane) {
+                    currentLane += laneWidth; targetX = currentLane;
+                } else if (dx < -30 && currentLane > leftLane) {
+                    currentLane -= laneWidth; targetX = currentLane;
                 }
             } else {
-                // Vertical swipe
-                if (Math.abs(dy) > SWIPE_THRESHOLD) {
-                    if (dy > 0) doSlide(); // Swipe down
-                    else doJump(); // Swipe up
+                if (dy < -30 && !isJumping) {
+                    isJumping = true; jumpVelocity = jumpPower;
                 }
             }
         });
+    }
 
-        // --- Core Game Logic ---
-
-        function startGame() {
-            initAudio();
-            Tone.Transport.start();
-            
-            startScreen.classList.add('hidden');
-            gameOverScreen.classList.add('hidden');
-            hud.style.display = 'flex';
-            
-            // Reset variables
-            gameState = 'playing';
-            score = 0;
-            gameSpeed = BASE_SPEED;
-            currentLane = 1;
-            playerGroup.position.set(LANES[currentLane], BASE_Y, 0);
-            playerGroup.scale.set(1,1,1);
-            isJumping = false;
-            isSliding = false;
-            yVelocity = 0;
-            nextSpawnZ = -30;
-            scoreVal.innerText = 0;
-
-            // Clear old objects
-            obstacles.forEach(obs => scene.remove(obs.group));
-            obstacles = [];
-            scenery.forEach(s => scene.remove(s));
-            scenery = [];
-        }
-
-        function gameOver() {
-            gameState = 'gameover';
-            playCrash();
-            Tone.Transport.stop();
-            
-            // Update UI
-            hud.style.display = 'none';
-            gameOverScreen.classList.remove('hidden');
-            
-            let final = Math.floor(score);
-            finalScore.innerText = final;
-            
-            if (final > highScore) {
-                highScore = final;
-                localStorage.setItem('plantationRunnerHighScore', highScore);
+    function startCountdown() {
+        startScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        countdownScreen.style.display = 'flex';
+        gameState = 'COUNTDOWN';
+        
+        let count = 3;
+        countdownText.innerText = count;
+        
+        const countInterval = setInterval(() => {
+            count--;
+            if (count > 0) {
+                countdownText.innerText = count;
+            } else if (count === 0) {
+                countdownText.innerText = "GO!";
+            } else {
+                clearInterval(countInterval);
+                countdownScreen.style.display = 'none';
+                startGame();
             }
-            bestScore.innerText = highScore;
-            highScoreVal.innerText = highScore;
+        }, 800);
+    }
 
-            // Visual crash effect (shake camera slightly, spawn particles)
-            createExplosion(playerGroup.position, 0x3B82F6); // Blue particles for player
-            playerGroup.visible = false; // Hide player momentarily
+    function startGame() {
+        score = 0;
+        distance = 0;
+        gameSpeed = baseSpeed;
+        comboCount = 0;
+        currentLane = middleLane;
+        targetX = middleLane;
+        playerGroup.position.set(middleLane, playerY, 0);
+        isJumping = false;
+        
+        scoreDisplay.innerText = "Score: 0";
+        comboDisplay.style.display = 'none';
+        
+        obstacles.forEach(obs => scene.remove(obs));
+        items.forEach(item => {
+            scene.remove(item.mesh);
+            if(item.light) scene.remove(item.light);
+        });
+        obstacles = [];
+        items = [];
+        
+        gameState = 'PLAYING';
+    }
+
+    function endGame() {
+        gameState = 'GAMEOVER';
+        finalScoreText.innerText = "Final Score: " + Math.floor(score);
+        gameOverScreen.style.display = 'flex';
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        if (gameState === 'PLAYING') {
+            update();
+        }
+        renderer.render(scene, camera);
+    }
+
+    let frameCount = 0;
+    function update() {
+        // Smooth lane switching
+        playerGroup.position.x += (targetX - playerGroup.position.x) * laneSwitchSpeed;
+
+        // Player Jump Physics
+        if (isJumping) {
+            playerGroup.position.y += jumpVelocity;
+            jumpVelocity += gravity;
+            if (playerGroup.position.y <= playerY) {
+                playerGroup.position.y = playerY;
+                isJumping = false;
+                jumpVelocity = 0;
+            }
         }
 
-        startBtn.addEventListener('click', async () => {
-            await Tone.start(); // Required by browsers to unlock audio context
-            startGame();
-            playerGroup.visible = true;
-        });
+        // Animate Wheels
+        wheels.forEach(w => w.rotation.x -= gameSpeed * 0.5);
 
-        restartBtn.addEventListener('click', () => {
-            startGame();
-            playerGroup.visible = true;
-        });
+        // Progression
+        gameSpeed = baseSpeed + (distance / 4000); // Scale up difficulty
+        distance += gameSpeed;
+        score += gameSpeed * 0.1;
+        scoreDisplay.innerText = "Score: " + Math.floor(score);
 
-        function update() {
-            requestAnimationFrame(update);
+        // Dynamic Spawning
+        frameCount++;
+        if (frameCount % Math.max(20, Math.floor(60 - gameSpeed * 8)) === 0) {
+            if (Math.random() < 0.6) spawnRealisticObstacle();
+            else spawnRealisticItem();
+        }
+        
+        // Spawn Background Trees occasionally
+        if (frameCount % 10 === 0) {
+            spawnSceneryTree(-120);
+        }
+
+        updateWorldObjects();
+    }
+
+    function updateWorldObjects() {
+        // Tightened bounding box for the tractor for fair dodging
+        const playerBox = new THREE.Box3().setFromObject(playerGroup).expandByScalar(-0.4);
+
+        // Obstacles
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+            let obs = obstacles[i];
+            obs.position.z += gameSpeed;
             
-            const dt = clock.getDelta();
-            if (dt > 0.1) return; // Prevent huge jumps if tab is inactive
+            const obsBox = new THREE.Box3().setFromObject(obs).expandByScalar(-0.2); // Forgiving hitboxes
+            if (playerBox.intersectsBox(obsBox)) {
+                endGame();
+                return; 
+            }
 
-            if (gameState === 'playing') {
-                // Update Score and Speed
-                score += (gameSpeed / 10) * dt;
-                scoreVal.innerText = Math.floor(score);
-                gameSpeed += SPEED_INCREMENT * dt;
+            if (obs.position.z > 15) {
+                scene.remove(obs);
+                obstacles.splice(i, 1);
+            }
+        }
 
-                // Player Movement (X axis - smooth lane changing)
-                const targetX = LANES[currentLane];
-                playerGroup.position.x += (targetX - playerGroup.position.x) * 15 * dt;
-
-                // Player Physics (Y axis - Jumping and Sliding)
-                if (isJumping) {
-                    yVelocity += GRAVITY * dt;
-                    playerGroup.position.y += yVelocity * dt;
-                    
-                    if (playerGroup.position.y <= BASE_Y) {
-                        playerGroup.position.y = BASE_Y;
-                        isJumping = false;
-                        yVelocity = 0;
-                    }
-                } else if (isSliding) {
-                    slideTimer -= dt;
-                    if (slideTimer <= 0) {
-                        isSliding = false;
-                        playerGroup.scale.y = 1; // Restore visual scale
-                        playerGroup.position.y = BASE_Y;
-                    }
-                } else {
-                    // Running animation (slight bobbing)
-                    playerGroup.position.y = BASE_Y + Math.sin(Date.now() * 0.015) * 0.1;
-                }
-
-                // Update Player Hitbox
-                // We use a slightly smaller hitbox for generous gameplay
-                playerBox.setFromObject(playerGroup);
-                // Shrink hitbox slightly
-                playerBox.expandByScalar(-0.2); 
-
-                // Move Objects and Detect Collisions
-                manageSpawning();
-
-                for (let i = obstacles.length - 1; i >= 0; i--) {
-                    let obs = obstacles[i];
-                    
-                    // Move obstacle towards player (+Z)
-                    obs.group.position.z += gameSpeed * dt;
-                    nextSpawnZ += gameSpeed * dt; // Shift the spawn cursor too
-                    
-                    // Rotate fruits for visual flair
-                    if (obs.userData.type === 'fruit' && obs.userData.mesh) {
-                        obs.userData.mesh.rotation.y += 2 * dt;
-                    }
-
-                    // Collision check
-                    obs.hitbox.setFromObject(obs.group);
-                    
-                    // For branches, if sliding, bypass collision visually by ensuring hitboxes don't intersect.
-                    // The player's Box3 naturally shrinks when scale.y changes, so setFromObject handles it!
-                    
-                    if (playerBox.intersectsBox(obs.hitbox)) {
-                        if (obs.userData.isDeadly) {
-                            gameOver();
-                        } else if (obs.userData.type === 'fruit') {
-                            // Collect fruit
-                            score += obs.userData.value;
-                            playCollect();
-                            createExplosion(obs.group.position, 0xEA580C);
-                            scene.remove(obs.group);
-                            obstacles.splice(i, 1);
-                            continue; // Skip the removal check below
-                        }
-                    }
-
-                    // Remove objects that pass behind the camera (Z > 10)
-                    if (obs.group.position.z > 10) {
-                        scene.remove(obs.group);
-                        obstacles.splice(i, 1);
-                    }
-                }
-
-                // Move Scenery
-                for (let i = scenery.length - 1; i >= 0; i--) {
-                    let s = scenery[i];
-                    s.position.z += gameSpeed * dt;
-                    if (s.position.z > 15) {
-                        scene.remove(s);
-                        scenery.splice(i, 1);
-                    }
+        // Items (Fruits)
+        for (let i = items.length - 1; i >= 0; i--) {
+            let itemObj = items[i];
+            let itemMesh = itemObj.mesh;
+            itemMesh.position.z += gameSpeed;
+            
+            // Bobbing & Rotating animation
+            itemMesh.rotation.y += 0.05;
+            itemMesh.position.y = 1 + Math.sin(frameCount * 0.1 + itemObj.seed) * 0.2;
+            
+            if(itemObj.light) {
+                itemObj.light.position.copy(itemMesh.position);
+            }
+            
+            const itemBox = new THREE.Box3().setFromObject(itemMesh);
+            
+            if (playerBox.intersectsBox(itemBox)) {
+                comboCount++;
+                score += itemObj.isGolden ? 10 : 1; 
+                
+                if (comboCount > 1) {
+                    comboDisplay.style.display = 'block';
+                    comboDisplay.innerText = "Combo x" + comboCount;
+                    comboDisplay.style.transform = "scale(1.3)";
+                    setTimeout(() => comboDisplay.style.transform = "scale(1)", 150);
                 }
                 
-                // Animate path texture/movement (simulate movement)
-                // Since we use a solid color, we just move the obstacles. 
-                // To make ground feel alive, the passing trees do the trick.
+                scene.remove(itemMesh);
+                if(itemObj.light) scene.remove(itemObj.light);
+                items.splice(i, 1);
+                continue;
             }
 
-            // Always update particles even in gameover
-            updateParticles(dt);
-
-            // Render Scene
-            renderer.render(scene, camera);
+            // Missed item combo reset
+            if (itemMesh.position.z > playerGroup.position.z + 3) {
+                if (comboCount > 0) {
+                    comboCount = 0;
+                    comboDisplay.style.display = 'none';
+                }
+                scene.remove(itemMesh);
+                if(itemObj.light) scene.remove(itemObj.light);
+                items.splice(i, 1);
+            }
         }
 
-        // Handle Window Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        // Scenery Trees Movement & Cleanup
+        for (let i = scenery.length - 1; i >= 0; i--) {
+            scenery[i].position.z += gameSpeed;
+            if (scenery[i].position.z > 20) {
+                scene.remove(scenery[i]);
+                scenery.splice(i, 1);
+            }
+        }
+    }
+
+    function spawnRealisticObstacle() {
+        const lanes = [leftLane, middleLane, rightLane];
+        const lane = lanes[Math.floor(Math.random() * lanes.length)];
+        const type = Math.random();
+        
+        let mesh;
+        if (type < 0.35) {
+            // Realistic Log
+            const geo = new THREE.CylinderGeometry(0.6, 0.6, 3, 12);
+            mesh = new THREE.Mesh(geo, matWood);
+            mesh.rotation.z = Math.PI / 2; // Lay flat
+            mesh.position.set(lane, 0.6, -100);
+        } else if (type < 0.70) {
+            // Large Fallen Frond / Wood blockade
+            const geo = new THREE.BoxGeometry(0.4, 2.5, 0.6);
+            mesh = new THREE.Mesh(geo, matWood);
+            mesh.position.set(lane, 1.25, -100);
+        } else {
+            // Clustered Coconuts
+            mesh = new THREE.Group();
+            const cGeo = new THREE.SphereGeometry(0.5, 12, 12);
+            const positions = [[0,0,0], [0.6,0,-0.4], [-0.4,0,-0.5]];
+            positions.forEach(p => {
+                let c = new THREE.Mesh(cGeo, matCoconut);
+                c.position.set(...p);
+                c.castShadow = true; c.receiveShadow = true;
+                mesh.add(c);
+            });
+            mesh.position.set(lane, 0.5, -100);
+        }
+        
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        scene.add(mesh);
+        obstacles.push(mesh);
+    }
+
+    function spawnRealisticItem() {
+        const lanes = [leftLane, middleLane, rightLane];
+        const lane = lanes[Math.floor(Math.random() * lanes.length)];
+        const isGolden = Math.random() < 0.15; 
+        
+        // Realistic Fresh Fruit Bunch (FFB) - Cluster of spheres
+        const bunch = new THREE.Group();
+        const baseGeo = new THREE.SphereGeometry(0.3, 8, 8);
+        const material = isGolden ? matGold : matFruit;
+        
+        // Center core
+        bunch.add(new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 8), material));
+        // Lumpy outer fruits
+        const fruitPos = [[0.3,0.2,0], [-0.3,0.2,0], [0,0.2,0.3], [0,0.2,-0.3], [0,0.5,0]];
+        fruitPos.forEach(p => {
+            let f = new THREE.Mesh(baseGeo, material);
+            f.position.set(...p);
+            bunch.add(f);
         });
 
-        // Start the rendering loop immediately
-        update();
+        bunch.position.set(lane, 1.2, -100);
+        bunch.traverse(child => child.castShadow = true);
+        
+        let light = null;
+        if (isGolden) {
+            light = new THREE.PointLight(0xFFD700, 1.5, 5);
+            light.position.copy(bunch.position);
+            scene.add(light);
+        }
 
-    </script>
+        scene.add(bunch);
+        items.push({ mesh: bunch, isGolden, seed: Math.random() * 10, light }); 
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Attach countdown to buttons
+    document.getElementById('startBtn').addEventListener('click', startCountdown);
+    document.getElementById('restartBtn').addEventListener('click', startCountdown);
+
+    // Boot game
+    window.onload = init;
+</script>
 </body>
 </html>
