@@ -238,6 +238,7 @@
         const matFruit = new THREE.MeshStandardMaterial({ color: colors.fruit, roughness: 0.6, metalness: 0.1 });
         const matGold = new THREE.MeshStandardMaterial({ color: colors.golden, roughness: 0.3, metalness: 0.8, emissive: 0x664400 });
         const matCoconut = new THREE.MeshStandardMaterial({ color: colors.coconut, roughness: 0.9, metalness: 0.0 });
+        const matMonkey = new THREE.MeshStandardMaterial({ color: 0x6B4423, roughness: 1.0 });
         const matMagnet = new THREE.MeshStandardMaterial({ color: 0xFF2222, metalness: 0.8, roughness: 0.2, emissive: 0x440000 });
         const matShield = new THREE.MeshStandardMaterial({ color: 0x00E5FF, metalness: 0.5, roughness: 0.1, transparent: true, opacity: 0.8 });
         const matEnemyTractor = new THREE.MeshStandardMaterial({ color: 0x4444FF, roughness: 0.7, metalness: 0.2 });
@@ -699,10 +700,12 @@
                 let obsObj = obstacles[i];
                 let obs = obsObj.mesh;
                 
-                if (obsObj.type === 'moving_tractor') {
+                if (obsObj.type === 'moving_monkey') {
                     obs.position.x += obsObj.dir * 0.05;
                     if (obs.position.x > laneWidth) obsObj.dir = -1;
                     if (obs.position.x < -laneWidth) obsObj.dir = 1;
+                    // Add hopping animation
+                    obs.position.y = 0.5 + Math.abs(Math.sin(frameCount * 0.2)) * 0.6;
                 }
                 
                 obs.position.z += gameSpeed;
@@ -885,16 +888,30 @@
                 });
                 mesh.position.set(lane, 0.5, -100);
             } else {
-                // Moving Tractor
+                // Moving Monkey
                 mesh = new THREE.Group();
-                const base = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 2), matEnemyTractor);
-                base.position.y = 0.5;
-                mesh.add(base);
-                const top = new THREE.Mesh(new THREE.BoxGeometry(1, 0.8, 1), matEnemyTractor);
-                top.position.set(0, 1.4, 0);
-                mesh.add(top);
+                
+                // Body
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.7), matMonkey);
+                body.position.y = 0.4;
+                mesh.add(body);
+                
+                // Head
+                const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), matMonkey);
+                head.position.set(0, 1.1, 0.2);
+                mesh.add(head);
+
+                // Ears
+                const earGeo = new THREE.BoxGeometry(0.2, 0.3, 0.1);
+                const earL = new THREE.Mesh(earGeo, matMonkey);
+                earL.position.set(0.4, 1.1, 0.2);
+                mesh.add(earL);
+                const earR = new THREE.Mesh(earGeo, matMonkey);
+                earR.position.set(-0.4, 1.1, 0.2);
+                mesh.add(earR);
+
                 mesh.position.set(lane, 0.5, -100);
-                obsType = 'moving_tractor';
+                obsType = 'moving_monkey';
             }
             
             mesh.castShadow = true;
@@ -966,21 +983,42 @@
 
         function spawnTree(side) {
             const tree = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 6, 8), matWood);
-            trunk.position.y = 3;
+            
+            // Palm Trunk (Segmented and slightly curved)
+            const trunk = new THREE.Group();
+            for(let i = 0; i < 6; i++) {
+                const segGeo = new THREE.CylinderGeometry(0.4 - (i*0.04), 0.45 - (i*0.04), 1.2, 7);
+                const seg = new THREE.Mesh(segGeo, matWood);
+                seg.position.y = i * 1.1;
+                seg.rotation.z = side * 0.08 * i; // Lean outward away from path
+                seg.castShadow = true;
+                trunk.add(seg);
+            }
+            trunk.position.y = 0.6;
             tree.add(trunk);
 
-            for(let i=0; i<5; i++){
-                const frond = new THREE.Mesh(new THREE.PlaneGeometry(2, 4), matLeaves);
-                frond.position.set(0, 6, 0);
-                frond.rotation.x = Math.PI/4;
-                frond.rotation.y = (Math.PI*2/5) * i;
-                frond.position.x += Math.sin(frond.rotation.y) * 1.5;
-                frond.position.z += Math.cos(frond.rotation.y) * 1.5;
+            // Palm Fronds
+            const crownHeight = 6 * 1.1;
+            const frondGeo = new THREE.CylinderGeometry(0.1, 0.8, 4.5, 4);
+            frondGeo.translate(0, 2.25, 0); // Pivot at the base
+            
+            for(let i = 0; i < 7; i++) {
+                const frond = new THREE.Mesh(frondGeo, matLeaves);
+                // Position at the top of the bent trunk
+                frond.position.set(side * 0.08 * 5 * 1.1, crownHeight, 0);
+                
+                // Spread out in a circle
+                frond.rotation.y = (Math.PI * 2 / 7) * i;
+                // Droop down like palm leaves
+                frond.rotation.x = Math.PI / 2.5; 
+                
+                // Flatten to look like a leaf rather than a tube
+                frond.scale.set(1, 1, 0.15); 
+                frond.castShadow = true;
                 tree.add(frond);
             }
             
-            tree.position.set(side * (5 + Math.random() * 10), 0, -120);
+            tree.position.set(side * (5 + Math.random() * 8), 0, -120);
             scene.add(tree);
             scenery.push(tree);
         }
