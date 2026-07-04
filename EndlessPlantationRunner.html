@@ -82,9 +82,9 @@
             <h2>Character Shop</h2>
             <div id="shopCoins" style="margin-bottom: 10px; font-weight: bold; color: gold;">Coins: 0</div>
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button class="btn" id="skin0Btn" onclick="buyOrEquipSkin(0, 0)">Tractor (Default) - Equipped</button>
-                <button class="btn" id="skin1Btn" onclick="buyOrEquipSkin(1, 500)">Golden Harvester - 500 Coins</button>
-                <button class="btn" id="skin2Btn" onclick="buyOrEquipSkin(2, 1000)">Neon Rig - 1000 Coins</button>
+                <button class="btn" id="skin0Btn" onclick="buyOrEquipSkin(0, 0)">Farmer (Default) - Equipped</button>
+                <button class="btn" id="skin1Btn" onclick="buyOrEquipSkin(1, 500)">Golden Farmer - 500 Coins</button>
+                <button class="btn" id="skin2Btn" onclick="buyOrEquipSkin(2, 1000)">Neon Cyber Farmer - 1000 Coins</button>
             </div>
             <button class="btn" style="background: #e74c3c; border-color: #c0392b; margin-top: 20px;" onclick="showScreen('mainMenu')">Back</button>
         </div>
@@ -123,14 +123,16 @@
         let objects = [], items = [];
         let particles = [];
         let trees = [];
+        let mountains = [];
+        let ambientParticles;
         let lanes = [-2, 0, 2];
         let currentLane = 1; // Middle lane index
         let targetX = 0;
         
         let gameState = 'MENU'; // MENU, INTRO, COUNTDOWN, PLAYING, PAUSED, GAMEOVER
         let menuAngle = 0;
-        let gameSpeed = 0.3;
-        let baseSpeed = 0.3;
+        let gameSpeed = 0.22;
+        let baseSpeed = 0.22;
         let distance = 0;
         let score = 0;
         let coins = 0;
@@ -139,7 +141,7 @@
         let velocityY = 0;
         let isJumping = false;
         let gravity = -0.015;
-        let laneSwitchSpeed = 0.2;
+        let laneSwitchSpeed = 0.12;
         let lastFrameTime = performance.now();
         
         let combo = 0;
@@ -205,7 +207,7 @@
             document.getElementById('shopCoins').innerText = `Coins: ${saveData.totalCoins}`;
             
             // Update Shop Buttons dynamically
-            const skinNames = ["Tractor (Default)", "Golden Harvester", "Neon Rig"];
+            const skinNames = ["Farmer (Default)", "Golden Farmer", "Neon Cyber Farmer"];
             const skinCosts = [0, 500, 1000];
             for(let i=0; i<=2; i++) {
                 const btn = document.getElementById(`skin${i}Btn`);
@@ -314,7 +316,7 @@
 
         function init3D() {
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x87CEEB, 0.015);
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.008); // Reduced fog density for deeper background
             
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
             camera.position.set(0, 4, 8);
@@ -349,42 +351,80 @@
             });
         }
 
-        const matGround = new THREE.MeshStandardMaterial({ color: 0x4B3621, roughness: 1 });
-        const matPath = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.9 });
+        const matGround = new THREE.MeshStandardMaterial({ color: 0x2e5c1e, roughness: 1 }); // Lush plantation green
+        const matPath = new THREE.MeshStandardMaterial({ color: 0x7a4b2a, roughness: 1 }); // Dirt path
         
         function createEnvironment() {
             // Main wide ground
-            const groundGeo = new THREE.PlaneGeometry(100, 300);
+            const groundGeo = new THREE.PlaneGeometry(300, 500); // Widened and lengthened
             const ground = new THREE.Mesh(groundGeo, matGround);
             ground.rotation.x = -Math.PI / 2;
-            ground.position.z = -50;
+            ground.position.z = -100;
             ground.receiveShadow = true;
             scene.add(ground);
             
             // Running path
-            const pathGeo = new THREE.PlaneGeometry(8, 300);
+            const pathGeo = new THREE.PlaneGeometry(8, 500);
             const path = new THREE.Mesh(pathGeo, matPath);
             path.rotation.x = -Math.PI / 2;
             path.position.y = 0.01; // slightly above ground to prevent z-fighting
-            path.position.z = -50;
+            path.position.z = -100;
             path.receiveShadow = true;
             scene.add(path);
 
-            // Initial Scenery (Palm Trees)
-            for(let i=0; i<20; i++) {
+            // Add Distant Parallax Mountains/Hills
+            const matMountain = new THREE.MeshStandardMaterial({ color: 0x1b3a12, roughness: 1, flatShading: true });
+            for(let i=0; i<8; i++) {
+                const mountain = new THREE.Mesh(new THREE.ConeGeometry(25 + Math.random()*20, 40 + Math.random()*30, 6), matMountain);
+                mountain.position.set((Math.random() - 0.5) * 180, 15, -100 - Math.random()*200);
+                scene.add(mountain);
+                mountains.push(mountain);
+            }
+
+            // Add Ambient Floating Dust/Leaves
+            const dustGeo = new THREE.BufferGeometry();
+            const dustCount = 400;
+            const dustPos = new Float32Array(dustCount * 3);
+            for(let i=0; i<dustCount*3; i+=3) {
+                dustPos[i] = (Math.random() - 0.5) * 100;  // x
+                dustPos[i+1] = Math.random() * 20;         // y
+                dustPos[i+2] = (Math.random() - 0.5) * 300;// z
+            }
+            dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+            ambientParticles = new THREE.Points(dustGeo, new THREE.PointsMaterial({color: 0xddff88, size: 0.15, transparent: true, opacity: 0.6}));
+            scene.add(ambientParticles);
+
+            // Initial Scenery (Palm Trees & Bushes)
+            for(let i=0; i<50; i++) {
                 spawnScenery(true);
             }
         }
 
         function spawnScenery(initial = false) {
             const isLeft = Math.random() > 0.5;
-            const xPos = isLeft ? - (5 + Math.random() * 10) : (5 + Math.random() * 10);
-            const zPos = initial ? -Math.random() * 150 : -150;
+            const xPos = isLeft ? - (5 + Math.random() * 25) : (5 + Math.random() * 25);
+            const zPos = initial ? -Math.random() * 300 : -300;
             
-            const tree = createPalmTree();
-            tree.position.set(xPos, 0, zPos);
-            scene.add(tree);
-            trees.push(tree);
+            let scenery;
+            if (Math.random() > 0.35) {
+                scenery = createPalmTree();
+            } else {
+                scenery = createBush();
+            }
+            scenery.position.set(xPos, 0, zPos);
+            scene.add(scenery);
+            trees.push(scenery);
+        }
+
+        function createBush() {
+            const group = new THREE.Group();
+            const matLeaf = new THREE.MeshStandardMaterial({ color: 0x1d400e, roughness: 0.9, flatShading: true });
+            const mesh = new THREE.Mesh(new THREE.DodecahedronGeometry(1 + Math.random()*1.5, 0), matLeaf);
+            mesh.position.y = 0.5;
+            mesh.scale.set(1, 0.6 + Math.random()*0.4, 1);
+            mesh.castShadow = true;
+            group.add(mesh);
+            return group;
         }
 
         function createPalmTree() {
@@ -450,74 +490,89 @@
                 playerGroup.remove(playerGroup.children[0]); 
             }
 
-            // Base colors based on skin
-            let bodyColor = 0xcc0000; // Red tractor
-            if(saveData.currentSkin === 1) bodyColor = 0xFFD700; // Gold
-            if(saveData.currentSkin === 2) bodyColor = 0x00FFFF; // Neon Cyan
-            
-            const matBody = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.5, metalness: 0.1 });
-            const matDark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
-            const matGlass = new THREE.MeshStandardMaterial({ color: 0xaaddff, roughness: 0.1, transparent: true, opacity: 0.7 });
+            // Colors based on skin
+            let colorSkin = 0xffcc99;
+            let colorShirt = 0xcc0000;
+            let colorPants = 0x1e50a2;
+            let colorHat = 0xddbb77;
+            let isNeon = false;
 
-            // Curvy Engine Hood (Cylinder laid horizontally)
-            const hoodGeo = new THREE.CylinderGeometry(0.6, 0.7, 1.4, 16);
-            hoodGeo.rotateX(Math.PI/2);
-            const hood = new THREE.Mesh(hoodGeo, matBody);
-            hood.position.set(0, 0.7, -0.4);
-            hood.castShadow = true;
-            playerGroup.add(hood);
+            if (saveData.currentSkin === 1) { // Golden
+                colorSkin = 0xFFD700; colorShirt = 0xFFC125; colorPants = 0xDAA520; colorHat = 0xFFE384;
+            } else if (saveData.currentSkin === 2) { // Neon Cyber
+                colorSkin = 0xffffff; colorShirt = 0x00FFFF; colorPants = 0xFF00FF; colorHat = 0x00FFFF;
+                isNeon = true;
+            }
 
-            // Cabin Base (Slightly rounded feel)
-            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.8, 1.2), matBody);
-            cabin.position.set(0, 0.9, 0.6);
-            cabin.castShadow = true;
-            playerGroup.add(cabin);
+            const matSkin = new THREE.MeshStandardMaterial({ color: colorSkin, roughness: 0.6 });
+            const matShirt = new THREE.MeshStandardMaterial({ color: colorShirt, roughness: 0.9, emissive: isNeon ? colorShirt : 0x000000, emissiveIntensity: isNeon ? 0.5 : 0 });
+            const matPants = new THREE.MeshStandardMaterial({ color: colorPants, roughness: 0.9, emissive: isNeon ? colorPants : 0x000000, emissiveIntensity: isNeon ? 0.5 : 0 });
+            const matHat = new THREE.MeshStandardMaterial({ color: colorHat, roughness: 1.0 });
 
-            // Bubbly Glass Roof
-            const roofGeo = new THREE.SphereGeometry(0.7, 16, 16);
-            const roof = new THREE.Mesh(roofGeo, matGlass);
-            roof.scale.set(1, 1.2, 0.8);
-            roof.position.set(0, 1.7, 0.6);
-            playerGroup.add(roof);
+            // Torso Base (Rounded Cylinder)
+            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.8, 16), matShirt);
+            torso.position.y = 1.2;
+            torso.castShadow = true;
+            playerGroup.add(torso);
 
-            // Roof Cap
-            const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 0.2, 16), matBody);
-            cap.scale.set(1, 1, 0.8);
-            cap.position.set(0, 2.5, 0.6);
-            cap.castShadow = true;
-            playerGroup.add(cap);
+            // Head (Sphere)
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), matSkin);
+            head.position.y = 0.65; // Relative to torso
+            head.castShadow = true;
+            torso.add(head);
 
-            // Cartoon Exhaust Pipe (angled out)
-            const pipeGeo = new THREE.CylinderGeometry(0.15, 0.1, 0.8, 8);
-            const pipe = new THREE.Mesh(pipeGeo, matDark);
-            pipe.position.set(0.5, 1.5, -0.8);
-            pipe.rotation.z = -0.2;
-            pipe.rotation.x = -0.2;
-            pipe.castShadow = true;
-            playerGroup.add(pipe);
-            
-            // Chunky Cartoon Wheels
-            const wGeoFront = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16).rotateZ(Math.PI/2);
-            const wGeoBack = new THREE.CylinderGeometry(0.7, 0.7, 0.6, 16).rotateZ(Math.PI/2);
-            
-            const positions = [
-                [-0.8, 0.4, -0.6], [0.8, 0.4, -0.6], // Front small
-                [-0.9, 0.7, 0.8],  [0.9, 0.7, 0.8]   // Back large
-            ];
-            
-            playerGroup.wheels = [];
-            positions.forEach((pos, idx) => {
-                const wheel = new THREE.Mesh(idx > 1 ? wGeoBack : wGeoFront, matDark);
-                wheel.position.set(...pos);
-                wheel.castShadow = true;
-                playerGroup.add(wheel);
-                playerGroup.wheels.push(wheel);
-            });
+            // Hat
+            if (saveData.currentSkin === 2) {
+                // Cyber Visor (Curved glowing strip)
+                const visor = new THREE.Mesh(new THREE.CylinderGeometry(0.29, 0.29, 0.15, 16, 1, false, 0, Math.PI), matHat);
+                visor.position.set(0, 0.1, 0);
+                visor.rotation.y = Math.PI / 2;
+                head.add(visor);
+            } else {
+                // Straw Hat (Rounded edges)
+                const hatBase = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.05, 16), matHat);
+                hatBase.position.y = 0.25;
+                const hatTop = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.28, 0.25, 16), matHat);
+                hatTop.position.y = 0.4;
+                head.add(hatBase, hatTop);
+            }
+
+            // Limb Creator function (Uses Cylinders for realistic limbs)
+            function createLimb(mat, radiusTop, radiusBot, h, yOffset) {
+                const pivot = new THREE.Group();
+                const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radiusTop, radiusBot, h, 12), mat);
+                mesh.position.y = yOffset; // Offset mesh so pivot is at joint
+                mesh.castShadow = true;
+                pivot.add(mesh);
+                return pivot;
+            }
+
+            // Arms (Slightly tapered)
+            const leftArm = createLimb(matSkin, 0.1, 0.08, 0.7, -0.35);
+            leftArm.position.set(-0.4, 0.25, 0); // Shoulder joint
+            torso.add(leftArm);
+
+            const rightArm = createLimb(matSkin, 0.1, 0.08, 0.7, -0.35);
+            rightArm.position.set(0.4, 0.25, 0); // Shoulder joint
+            torso.add(rightArm);
+
+            // Legs (Thicker pants tapering down)
+            const leftLeg = createLimb(matPants, 0.15, 0.12, 0.8, -0.4);
+            leftLeg.position.set(-0.16, -0.4, 0); // Hip joint
+            torso.add(leftLeg);
+
+            const rightLeg = createLimb(matPants, 0.15, 0.12, 0.8, -0.4);
+            rightLeg.position.set(0.16, -0.4, 0); // Hip joint
+            torso.add(rightLeg);
+
+            // Store references for animation in update loop
+            playerGroup.limbs = { la: leftArm, ra: rightArm, ll: leftLeg, rl: rightLeg, torso: torso };
 
             // Shield Bubble (Hidden by default)
-            const shieldGeo = new THREE.SphereGeometry(2, 16, 16);
+            const shieldGeo = new THREE.SphereGeometry(1.5, 16, 16);
             const shieldMat = new THREE.MeshStandardMaterial({ color: 0x00FFFF, transparent: true, opacity: 0.3, wireframe: true });
             playerGroup.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+            playerGroup.shieldMesh.position.y = 1.0;
             playerGroup.shieldMesh.visible = false;
             playerGroup.add(playerGroup.shieldMesh);
 
@@ -806,13 +861,29 @@
                     velocityY = 0;
                 }
             } else {
-                // Tractor bounce effect when grounded
-                player.position.y = Math.sin(Date.now() * 0.02) * 0.05;
+                // Farmer bounce effect when grounded (syncs with footsteps)
+                player.position.y = Math.abs(Math.sin(distance * 0.8)) * 0.2;
             }
 
-            // Wheel rotation
-            if(playerGroup.wheels) {
-                playerGroup.wheels.forEach(w => w.rotation.x += gameSpeed);
+            // Running Animation (Swinging limbs)
+            if(playerGroup.limbs) {
+                if (isJumping) {
+                    // Strike a jumping pose
+                    playerGroup.limbs.la.rotation.x = Math.PI * 0.8; // Arms up
+                    playerGroup.limbs.ra.rotation.x = Math.PI * 0.8;
+                    playerGroup.limbs.ll.rotation.x = -0.5; // One leg forward
+                    playerGroup.limbs.rl.rotation.x = 0.2;  // One leg back
+                    playerGroup.limbs.torso.rotation.y = 0;
+                } else {
+                    // Smooth running cycle based on distance traveled
+                    const runCycle = distance * 0.8; 
+                    playerGroup.limbs.la.rotation.x = Math.sin(runCycle) * 1.5;
+                    playerGroup.limbs.ra.rotation.x = -Math.sin(runCycle) * 1.5;
+                    playerGroup.limbs.ll.rotation.x = -Math.sin(runCycle) * 1.5;
+                    playerGroup.limbs.rl.rotation.x = Math.sin(runCycle) * 1.5;
+                    // Slight natural torso twist while running
+                    playerGroup.limbs.torso.rotation.y = Math.sin(runCycle) * 0.2;
+                }
             }
 
             // Progression & Speed
@@ -854,6 +925,31 @@
                     spawnScenery(false);
                 }
             });
+
+            // Update Mountains (Parallax effect)
+            mountains.forEach(m => {
+                m.position.z += gameSpeed * 0.15;
+                if(m.position.z > 50) {
+                    m.position.z = -200 - Math.random() * 100;
+                    m.position.x = (Math.random() - 0.5) * 180;
+                }
+            });
+
+            // Update Ambient Particles
+            if (ambientParticles) {
+                const pos = ambientParticles.geometry.attributes.position.array;
+                for(let i=0; i<pos.length; i+=3) {
+                    pos[i+2] += gameSpeed * 0.5; // fly towards player
+                    pos[i+1] += Math.sin(Date.now() * 0.002 + i) * 0.01; // gentle float y
+                    pos[i] += Math.cos(Date.now() * 0.001 + i) * 0.01; // gentle float x
+                    if(pos[i+2] > 20) {
+                        pos[i+2] = -250 - Math.random() * 50;
+                        pos[i] = (Math.random() - 0.5) * 100;
+                        pos[i+1] = Math.random() * 20;
+                    }
+                }
+                ambientParticles.geometry.attributes.position.needsUpdate = true;
+            }
 
             // Update Obstacles & Collision
             const spawnChanceObs = activeEvent === 'TRACTOR_PARADE' ? 0.035 : 0.012; // Reduced obstacle frequency
@@ -1069,7 +1165,7 @@
             objects = []; items = []; particles = [];
             
             // Reset vars
-            baseSpeed = 0.3;
+            baseSpeed = 0.22;
             gameSpeed = baseSpeed;
             distance = 0;
             score = 0;
